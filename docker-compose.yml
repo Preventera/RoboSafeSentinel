@@ -1,0 +1,138 @@
+# ============================================================================
+# RoboSafe Sentinel - Docker Compose
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ===========================================================================
+  # RoboSafe Sentinel - Main Application
+  # ===========================================================================
+  robosafe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: robosafe-sentinel
+    ports:
+      - "9000:9000"
+    environment:
+      - ROBOSAFE_LOG_LEVEL=INFO
+      - ROBOSAFE_CELL_ID=WELD-MIG-001
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - robosafe-data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - robosafe-net
+
+  # ===========================================================================
+  # Prometheus - Metrics Collection (optional)
+  # ===========================================================================
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: robosafe-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - robosafe
+    restart: unless-stopped
+    networks:
+      - robosafe-net
+    profiles:
+      - monitoring
+
+  # ===========================================================================
+  # Grafana - Dashboards (optional)
+  # ===========================================================================
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: robosafe-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=robosafe
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - robosafe-net
+    profiles:
+      - monitoring
+
+  # ===========================================================================
+  # InfluxDB - Time Series Database (optional)
+  # ===========================================================================
+  influxdb:
+    image: influxdb:2.7
+    container_name: robosafe-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=robosafe
+      - DOCKER_INFLUXDB_INIT_PASSWORD=robosafe123
+      - DOCKER_INFLUXDB_INIT_ORG=preventera
+      - DOCKER_INFLUXDB_INIT_BUCKET=robosafe
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    restart: unless-stopped
+    networks:
+      - robosafe-net
+    profiles:
+      - timeseries
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  robosafe-net:
+    driver: bridge
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  robosafe-data:
+  prometheus-data:
+  grafana-data:
+  influxdb-data:
+
+# =============================================================================
+# Usage:
+#   # Start main app only
+#   docker-compose up -d robosafe
+#
+#   # Start with monitoring stack
+#   docker-compose --profile monitoring up -d
+#
+#   # Start with time series
+#   docker-compose --profile timeseries up -d
+#
+#   # Start everything
+#   docker-compose --profile monitoring --profile timeseries up -d
+#
+#   # View logs
+#   docker-compose logs -f robosafe
+#
+#   # Stop all
+#   docker-compose down
+# =============================================================================

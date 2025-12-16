@@ -1,28 +1,40 @@
-# RoboSafe Sentinel Docker Image
-# Multi-stage build for production
+# ============================================================================
+# RoboSafe Sentinel - Dockerfile
+# Système de supervision sécurité pour cellules robotisées
+# ============================================================================
 
-# Stage 1: Builder
+# Stage 1: Build
 FROM python:3.11-slim as builder
 
-WORKDIR /app
+WORKDIR /build
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    gcc \
+    g++ \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for caching
-COPY pyproject.toml ./
-COPY src/ ./src/
+COPY pyproject.toml .
+COPY src/ src/
 
-# Build wheel
-RUN pip install build && python -m build --wheel
+# Create wheel
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -e .
 
+# ============================================================================
 # Stage 2: Runtime
 FROM python:3.11-slim as runtime
 
-LABEL maintainer="Preventera / GenAISafety <dev@genaisafety.com>"
-LABEL description="RoboSafe Sentinel - Industrial Robot Safety System"
+# Labels
+LABEL maintainer="Preventera <support@preventera.com>"
+LABEL description="RoboSafe Sentinel - Safety Supervision System"
+LABEL version="0.1.0"
+
+# Environment
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
@@ -30,32 +42,49 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     libglib2.0-0 \
-    && rm -rf /var/lib/apt/lists/*
+    libsm6 \
+    libxext6 \
+    libxrender1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Copy wheel from builder
-COPY --from=builder /app/dist/*.whl ./
+# Copy wheels from builder
+COPY --from=builder /wheels /wheels
 
-# Install the package
-RUN pip install --no-cache-dir *.whl && rm *.whl
+# Install package
+RUN pip install --no-cache-dir /wheels/*.whl \
+    && rm -rf /wheels
+
+# Copy application files
+COPY src/ /app/src/
+COPY config/ /app/config/
+COPY data/templates/ /app/data/templates/
 
 # Create non-root user
-RUN useradd -m -u 1000 robosafe
+RUN useradd --create-home --shell /bin/bash robosafe \
+    && chown -R robosafe:robosafe /app
+
 USER robosafe
 
-# Create data directories
-RUN mkdir -p /app/data/logs /app/config
-
-# Environment
-ENV PYTHONUNBUFFERED=1
-ENV ROBOSAFE_ENV=production
+# Create directories for logs and data
+RUN mkdir -p /app/logs /app/data/samples
 
 # Expose ports
-EXPOSE 8080 9090
+EXPOSE 9000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8080/health')" || exit 1
+    CMD curl -f http://localhost:9000/health || exit 1
 
 # Default command
-ENTRYPOINT ["python", "-m", "robosafe.main"]
-CMD ["--config", "/app/config/config.yaml"]
+ENTRYPOINT ["python", "-m", "robosafe.integration"]
+CMD ["--simulate", "--port", "9000"]
+
+# ============================================================================
+# Usage:
+#   docker build -t robosafe-sentinel .
+#   docker run -p 9000:9000 robosafe-sentinel
+#   docker run -p 9000:9000 robosafe-sentinel --simulate --port 9000
+#   docker run -p 9000:9000 -v ./config:/app/config robosafe-sentinel --config /app/config/production.yaml
+# ============================================================================

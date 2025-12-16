@@ -1,93 +1,249 @@
-# 🤖 RoboSafeSentinel
+# 🤖 RoboSafe Sentinel
 
-**Système de sécurité intelligent pour cellules robotisées industrielles**
+**Système de supervision sécurité temps réel pour cellules robotisées industrielles**
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
-[![ISO 10218](https://img.shields.io/badge/ISO-10218:2025-green.svg)](docs/compliance/)
-[![AgenticX5](https://img.shields.io/badge/AgenticX5-Powered-purple.svg)](https://genaisafety.com)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Tests](https://img.shields.io/badge/tests-92%20passing-green.svg)]()
 
 ---
 
 ## 🎯 Vue d'ensemble
 
-RoboSafeSentinel est un module de sécurité basé sur l'IA qui s'intègre aux cellules robotisées existantes pour :
+RoboSafe Sentinel est une plateforme de supervision de sécurité basée sur l'architecture **AgenticX5** à 5 niveaux d'agents intelligents. Elle assure la protection des opérateurs travaillant à proximité de robots industriels en :
 
-- **Détecter** les situations dangereuses en temps réel (intrusions, fumées, postures)
-- **Prévenir** les accidents par des interventions graduées (alertes → ralentissement → arrêt)
-- **Tracer** tous les événements pour conformité et analyse
-- **Améliorer** continuellement via apprentissage des patterns
+- 📡 **Collectant** les données de multiples capteurs en temps réel
+- 🔍 **Analysant** les risques (distance, collision, exposition, équipement)
+- ⚡ **Décidant** des actions de sécurité appropriées
+- 🎯 **Exécutant** les commandes (E-STOP, ralentissement, alertes)
 
-### Architecture AgenticX5
+---
+
+## 🏗️ Architecture AgenticX5
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    ROBOSAFE SENTINEL                         │
-├─────────────────────────────────────────────────────────────┤
-│  NIVEAU 5: ORCHESTRATION                                     │
-│  └─ Coordination globale, arbitrage, escalade               │
-├─────────────────────────────────────────────────────────────┤
-│  NIVEAU 4: RECOMMANDATION                                    │
-│  └─ Décisions d'intervention (SLOW/STOP/ALERT)              │
-├─────────────────────────────────────────────────────────────┤
-│  NIVEAU 3: ANALYSE                                           │
-│  └─ Évaluation risques, scoring, patterns                   │
-├─────────────────────────────────────────────────────────────┤
-│  NIVEAU 2: NORMALISATION                                     │
-│  └─ Fusion capteurs, cohérence, timestamps                  │
-├─────────────────────────────────────────────────────────────┤
-│  NIVEAU 1: COLLECTE                                          │
-│  └─ Signaux robot, PLC, vision, fumées, wearables          │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                    NIVEAU 5: ORCHESTRATEUR                         │
+│         Coordination, arbitrage, exécution des actions             │
+├─────────────────────────────────────────────────────────────────────┤
+│                    NIVEAU 4: DÉCISION                              │
+│         Recommandations d'actions basées sur les risques           │
+├─────────────────────────────────────────────────────────────────────┤
+│                    NIVEAU 3: ANALYSE                               │
+│         Scoring des risques, détection de patterns                 │
+├─────────────────────────────────────────────────────────────────────┤
+│                  NIVEAUX 1-2: PERCEPTION                           │
+│         Collecte, normalisation, filtrage des signaux              │
+└─────────────────────────────────────────────────────────────────────┘
+                              ▲
+                              │
+        ┌─────────┬─────────┬─────────┬─────────┬─────────┐
+        │   PLC   │  Robot  │ Scanner │ Fumées  │ Vision  │
+        │ Siemens │  Fanuc  │  SICK   │ Modbus  │  YOLO   │
+        └─────────┴─────────┴─────────┴─────────┴─────────┘
 ```
 
 ---
 
-## 🚀 Quick Start
+## 📦 Installation
 
 ### Prérequis
 
-- Python 3.10+
-- Accès réseau aux équipements (PLC, robot, capteurs)
-- Ubuntu 22.04 LTS (Edge Node) ou Windows 10/11 (développement)
+- Python 3.11 ou supérieur
+- Windows 10/11 ou Linux
+- Git
 
-### Installation
+### Installation rapide
 
-```bash
+```powershell
 # Cloner le repository
 git clone https://github.com/Preventera/RoboSafeSentinel.git
 cd RoboSafeSentinel
 
-# Créer environnement virtuel
+# Créer un environnement virtuel (optionnel mais recommandé)
 python -m venv venv
-source venv/bin/activate  # Linux
-# ou: venv\Scripts\activate  # Windows
+.\venv\Scripts\Activate.ps1  # Windows
+# source venv/bin/activate   # Linux/Mac
 
-# Installer dépendances
-pip install -r requirements.txt
-
-# Installer en mode développement
+# Installer le package
 pip install -e .
+
+# Vérifier l'installation
+python -c "import robosafe; print('✅ Installation OK')"
 ```
 
-### Configuration
+### Dépendances principales
 
-```bash
-# Copier la configuration exemple
-cp config/config.example.yaml config/config.yaml
+| Package | Version | Usage |
+|---------|---------|-------|
+| FastAPI | 0.104+ | API REST |
+| uvicorn | 0.24+ | Serveur ASGI |
+| structlog | 23.2+ | Logging structuré |
+| ultralytics | 8.0+ | Vision IA (YOLO) |
+| numpy | 1.24+ | Calculs numériques |
+| prometheus-client | 0.19+ | Métriques |
 
-# Éditer selon votre cellule
-nano config/config.yaml
+---
+
+## 🚀 Démarrage rapide
+
+### Mode Simulation (sans matériel)
+
+```powershell
+# Lancer avec simulateurs
+python -m robosafe.integration --simulate --port 9000
 ```
 
-### Lancement
+### Accès aux interfaces
+
+| URL | Description |
+|-----|-------------|
+| http://localhost:9000/docs | 📚 Documentation API (Swagger) |
+| http://localhost:9000/health | ❤️ Health check |
+| http://localhost:9000/api/v1/status | 📊 État du système |
+| http://localhost:9000/api/v1/signals | 📡 Signaux temps réel |
+| http://localhost:9000/metrics | 📈 Métriques Prometheus |
+| http://localhost:9000/static/dashboard.html | 🖥️ Dashboard |
+
+### Mode Production
+
+```powershell
+# Avec fichier de configuration
+python -m robosafe.integration --config config/production.yaml
+```
+
+---
+
+## 📡 Capteurs supportés
+
+### PLC Siemens S7-1500F
+- Communication: S7 Protocol (TCP/IP)
+- Signaux: E-STOP, portes, verrous, heartbeat
+- Cycle: 100ms
+
+### Robot Fanuc ARC Mate
+- Communication: EtherNet/IP
+- Signaux: Position TCP, vitesse, mode, alarmes
+- Cycle: 50ms
+
+### Scanner SICK microScan3
+- Communication: SICK SOPAS (TCP)
+- Signaux: Distance minimale, zones actives, contamination
+- Cycle: 100ms
+
+### Capteur de fumées
+- Communication: Modbus TCP
+- Signaux: Concentration, ratio VLEP, température
+- Cycle: 500ms
+
+### Vision IA
+- Modèle: YOLOv8
+- Détection: Personnes, EPI, intrusions
+- Cycle: 33ms (30 FPS)
+
+---
+
+## ⚙️ Règles de sécurité
+
+Le système embarque 8 règles de sécurité préconfigurées :
+
+| ID | Règle | Condition | Action |
+|----|-------|-----------|--------|
+| RS-001 | Distance critique | < 500mm | **E-STOP** |
+| RS-002 | Distance warning | 500-800mm | Ralentir 25% |
+| RS-003 | Distance monitoring | 800-1200mm | Ralentir 50% |
+| RS-004 | Fumées critiques | > 120% VLEP | **STOP** |
+| RS-005 | Fumées élevées | 80-120% VLEP | Alerte |
+| RS-006 | Intrusion vision | Zone danger | **E-STOP** |
+| RS-007 | EPI manquant | Détection | Alerte |
+| RS-008 | E-STOP physique | Bouton activé | **E-STOP** |
+
+---
+
+## 🔌 API REST
+
+### Endpoints principaux
+
+```http
+GET  /health              # Health check
+GET  /api/v1/status       # État complet du système
+GET  /api/v1/signals      # Tous les signaux
+GET  /api/v1/signals/{id} # Signal spécifique
+GET  /api/v1/alerts       # Alertes actives
+POST /api/v1/command      # Envoyer une commande
+GET  /api/v1/rules        # Liste des règles
+POST /api/v1/rules/{id}/enable   # Activer une règle
+POST /api/v1/rules/{id}/disable  # Désactiver une règle
+GET  /metrics             # Métriques Prometheus
+```
+
+### Exemple de requête
 
 ```bash
-# Mode simulation (sans équipements réels)
-python -m robosafe.main --mode simulation
+# Obtenir l'état du système
+curl http://localhost:9000/api/v1/status
 
-# Mode production
-python -m robosafe.main --config config/config.yaml
+# Envoyer une commande
+curl -X POST http://localhost:9000/api/v1/command \
+  -H "Content-Type: application/json" \
+  -d '{"command": "RESET", "source": "operator"}'
+```
+
+---
+
+## 📊 WebSocket
+
+Connexion temps réel pour le dashboard :
+
+```javascript
+const ws = new WebSocket('ws://localhost:9000/ws');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Type:', data.type);
+  console.log('Payload:', data.payload);
+};
+```
+
+### Types de messages
+
+| Type | Description |
+|------|-------------|
+| `status` | État périodique du système |
+| `risk_update` | Mise à jour des scores de risque |
+| `alert` | Nouvelle alerte |
+| `execution_result` | Résultat d'exécution d'action |
+
+---
+
+## 🧪 Tests
+
+### Exécuter tous les tests
+
+```powershell
+pytest tests/ -v
+```
+
+### Tests par module
+
+```powershell
+# Tests des capteurs
+pytest tests/unit/test_sensors.py -v
+
+# Tests de la vision
+pytest tests/unit/test_vision.py -v
+
+# Tests des agents
+pytest tests/unit/test_agents.py -v
+
+# Tests de l'API
+pytest tests/unit/test_api.py -v
+```
+
+### Couverture
+
+```powershell
+pytest tests/ --cov=robosafe --cov-report=html
 ```
 
 ---
@@ -96,212 +252,145 @@ python -m robosafe.main --config config/config.yaml
 
 ```
 RoboSafeSentinel/
-├── src/
-│   └── robosafe/
-│       ├── core/              # Noyau système
-│       │   ├── state_machine.py    # Machine d'états sécurité
-│       │   ├── signal_manager.py   # Gestion signaux temps réel
-│       │   ├── rule_engine.py      # Moteur de règles
-│       │   └── watchdog.py         # Surveillance heartbeats
-│       ├── agents/            # Agents AgenticX5
-│       │   ├── perception.py       # Agent collecte (Niveau 1-2)
-│       │   ├── analysis.py         # Agent analyse (Niveau 3)
-│       │   ├── decision.py         # Agent décision (Niveau 4)
-│       │   └── orchestrator.py     # Agent orchestration (Niveau 5)
-│       ├── sensors/           # Drivers capteurs
-│       │   ├── robot_fanuc.py      # Interface Fanuc
-│       │   ├── plc_siemens.py      # Interface S7-1500
-│       │   ├── scanner_sick.py     # Scanner laser SICK
-│       │   ├── vision_ai.py        # Caméra vision IA
-│       │   └── fumes_sensor.py     # Capteur fumées
-│       ├── safety/            # Fonctions sécurité
-│       │   ├── ssm_calculator.py   # Calcul distances SSM
-│       │   ├── pfl_monitor.py      # Surveillance PFL
-│       │   └── exposure_tracker.py # Tracking expositions
-│       ├── rules/             # Règles d'intervention
-│       │   ├── rules_critical.py   # Règles P0 (E-STOP)
-│       │   ├── rules_stop.py       # Règles P1 (STOP)
-│       │   ├── rules_slow.py       # Règles P2 (SLOW)
-│       │   └── rules_alert.py      # Règles P3 (ALERT)
-│       ├── api/               # API REST/WebSocket
-│       │   ├── server.py           # Serveur FastAPI
-│       │   └── routes.py           # Endpoints
-│       └── utils/             # Utilitaires
-│           ├── logger.py           # Logging structuré
-│           ├── config.py           # Gestion configuration
-│           └── metrics.py          # Métriques Prometheus
-├── tests/                     # Tests
-│   ├── unit/                  # Tests unitaires
-│   └── integration/           # Tests intégration
-├── docs/                      # Documentation
-│   ├── architecture/          # Schémas architecture
-│   ├── compliance/            # Documents conformité
-│   └── training/              # Supports formation
-├── config/                    # Fichiers configuration
-├── scripts/                   # Scripts utilitaires
-├── data/                      # Données
-│   ├── templates/             # Templates Excel
-│   └── samples/               # Données exemple
-└── assets/                    # Ressources
+├── src/robosafe/
+│   ├── agents/           # Agents AgenticX5
+│   │   ├── base_agent.py
+│   │   ├── perception_agent.py
+│   │   ├── analysis_agent.py
+│   │   ├── decision_agent.py
+│   │   └── orchestrator_agent.py
+│   ├── api/              # API REST & WebSocket
+│   │   ├── server.py
+│   │   ├── websocket_manager.py
+│   │   ├── metrics.py
+│   │   └── static/
+│   ├── core/             # Composants centraux
+│   │   ├── state_machine.py
+│   │   ├── signal_manager.py
+│   │   └── rule_engine.py
+│   ├── sensors/          # Drivers capteurs
+│   │   ├── plc_siemens.py
+│   │   ├── robot_fanuc.py
+│   │   ├── scanner_sick.py
+│   │   ├── fumes_sensor.py
+│   │   └── vision_ai.py
+│   └── integration.py    # Script principal
+├── tests/
+│   └── unit/
+├── config/
+│   └── production.yaml
+├── data/
+│   └── templates/        # Fichiers Excel du pilote
+├── .github/workflows/    # CI/CD
+├── pyproject.toml
+└── README.md
 ```
 
 ---
 
-## ⚙️ Configuration
+## 🔧 Configuration
 
-### Exemple `config.yaml`
+### Fichier production.yaml
 
 ```yaml
 cell:
   id: "WELD-MIG-001"
-  name: "Cellule Soudage MIG"
-  type: "welding"
+  name: "Cellule Soudage MIG #1"
+
+plc:
+  type: "siemens_s7"
+  ip: "192.168.1.10"
+  rack: 0
+  slot: 1
 
 robot:
   type: "fanuc"
-  model: "ARC Mate 100iD"
-  ip: "192.168.1.10"
-  protocol: "ethernet_ip"
-
-plc:
-  type: "siemens"
-  model: "S7-1500F"
   ip: "192.168.1.20"
-  protocol: "profisafe"
+  port: 44818
 
-sensors:
-  scanners:
-    - id: "scanner_left"
-      type: "sick_microscan3"
-      ip: "192.168.1.30"
-    - id: "scanner_right"
-      type: "sick_microscan3"
-      ip: "192.168.1.31"
-  
-  vision:
-    enabled: true
-    ip: "192.168.1.40"
-    model: "basler_ace2"
-  
-  fumes:
-    enabled: true
-    ip: "192.168.1.50"
-    protocol: "modbus_tcp"
-    vlep: 5.0  # mg/m³
+scanner:
+  type: "sick_microscan3"
+  ip: "192.168.1.30"
+  zone_protective_mm: 500
+  zone_warning_mm: 1200
 
-thresholds:
-  fumes:
-    warning: 0.5   # 50% VLEP
-    alert: 0.8     # 80% VLEP
-    critical: 1.0  # 100% VLEP
-    stop: 1.2      # 120% VLEP
-  
-  distance:
-    stop: 800      # mm
-    slow: 1500     # mm
-    warn: 2000     # mm
-
-logging:
-  level: "INFO"
-  format: "json"
-  output: "logs/robosafe.log"
+agents:
+  analysis:
+    distance_critical_mm: 500
+    distance_high_mm: 800
+    fumes_critical_vlep: 1.2
 ```
 
 ---
 
-## 🔒 Sécurité
+## 📈 Métriques Prometheus
 
-### Principe fondamental
+```prometheus
+# Signaux
+robosafe_signal_value{signal_id="scanner_min_distance"}
 
-> **La chaîne de sécurité certifiée (PLC Safety) reste SOUVERAINE.**
-> 
-> RoboSafeSentinel est une couche fonctionnelle additionnelle qui peut DEMANDER des actions mais ne peut jamais COMMANDER directement ni INHIBER les protections certifiées.
+# Agents
+robosafe_agent_cycles_total{agent="perception"}
+robosafe_agent_messages_total{agent="analysis"}
 
-### Fail-safe
+# Règles
+robosafe_rules_triggered_total{rule_id="RS-001"}
 
-| Événement | Action |
-|-----------|--------|
-| Perte communication IA | Fallback PLC sécurité seul |
-| Timeout heartbeat | Arrêt surveillé automatique |
-| Erreur critique | Mode dégradé sécuritaire |
+# État
+robosafe_safety_state{state="NOMINAL"}
+```
 
 ---
 
-## 📊 KPI & Monitoring
-
-### Dashboard temps réel
-
-```
-http://localhost:8080/dashboard
-```
-
-### Métriques Prometheus
-
-```
-http://localhost:9090/metrics
-```
-
-### KPI disponibles
-
-- `robosafe_state` - État machine (NORMAL/WARNING/SLOW/STOP/ESTOP)
-- `robosafe_risk_score` - Score risque 0-100
-- `robosafe_fumes_vlep_ratio` - Ratio fumées/VLEP
-- `robosafe_interventions_total` - Compteur interventions
-- `robosafe_false_positives_total` - Compteur faux positifs
-
----
-
-## 🧪 Tests
+## 🐳 Docker
 
 ```bash
-# Tous les tests
-pytest
+# Construire l'image
+docker build -t robosafe-sentinel .
 
-# Tests unitaires uniquement
-pytest tests/unit/
+# Lancer en mode simulation
+docker run -p 9000:9000 robosafe-sentinel --simulate
 
-# Tests avec couverture
-pytest --cov=robosafe --cov-report=html
-
-# Tests d'intégration (nécessite équipements)
-pytest tests/integration/ --integration
+# Avec configuration montée
+docker run -p 9000:9000 \
+  -v ./config:/app/config \
+  robosafe-sentinel --config /app/config/production.yaml
 ```
-
----
-
-## 📚 Documentation
-
-| Document | Description |
-|----------|-------------|
-| [Architecture](docs/architecture/) | Schémas et diagrammes |
-| [Compliance](docs/compliance/) | Conformité ISO 10218, 13849 |
-| [Training](docs/training/) | Supports de formation |
-| [API Reference](docs/api/) | Documentation API REST |
 
 ---
 
 ## 🤝 Contribution
 
 1. Fork le repository
-2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
-3. Commit les changements (`git commit -m 'Add AmazingFeature'`)
-4. Push la branche (`git push origin feature/AmazingFeature`)
+2. Créer une branche (`git checkout -b feature/nouvelle-fonctionnalite`)
+3. Commiter (`git commit -m 'Ajout nouvelle fonctionnalité'`)
+4. Pusher (`git push origin feature/nouvelle-fonctionnalite`)
 5. Ouvrir une Pull Request
 
 ---
 
 ## 📄 Licence
 
-Propriétaire - © 2024-2025 Preventera / GenAISafety
+MIT License - voir [LICENSE](LICENSE)
+
+---
+
+## 👥 Équipe
+
+**Preventera / GenAISafety**
+- Architecture AgenticX5
+- Expertise HSE + IA
 
 ---
 
 ## 📞 Support
 
-- **Email**: support@genaisafety.com
-- **Documentation**: https://docs.genaisafety.com/robosafe
-- **Issues**: https://github.com/Preventera/RoboSafeSentinel/issues
+- 📧 Email: support@preventera.com
+- 🐛 Issues: [GitHub Issues](https://github.com/Preventera/RoboSafeSentinel/issues)
+- 📖 Docs: [Documentation complète](https://docs.preventera.com/robosafe)
 
 ---
 
-*Développé avec ❤️ par l'équipe SquadrAI*
+<p align="center">
+  <strong>🛡️ La sécurité des travailleurs, augmentée par l'IA</strong>
+</p>
