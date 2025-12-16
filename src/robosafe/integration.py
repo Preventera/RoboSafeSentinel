@@ -193,11 +193,11 @@ class RoboSafeSentinel:
             await self.vision_driver.connect()
             
             # Démarrer les simulations
-            await self.plc_driver.start_simulation(100)
-            await self.robot_driver.start_simulation(50)
-            await self.scanner_driver.start_simulation(100)
-            await self.fumes_driver.start_simulation(500)
-            await self.vision_driver.start_processing(33)
+            await self.plc_driver.start_cyclic_read()
+            await self.robot_driver.start_cyclic_read()
+            await self.scanner_driver.start_cyclic_read()
+            await self.fumes_driver.start_cyclic_read()
+            await self.vision_driver.start_processing()
             
         else:
             logger.info("initializing_real_hardware")
@@ -215,26 +215,26 @@ class RoboSafeSentinel:
         if self.plc_driver and self.plc_driver.is_connected:
             status = self.plc_driver.current_status
             if status:
-                signals["plc_heartbeat"] = status.heartbeat
+                signals["plc_heartbeat"] = status.plc_heartbeat
                 signals["estop_status"] = 0 if status.estop_active else 1
-                signals["door_closed"] = status.door_interlock
+                signals["door_closed"] = status.door_closed
                 signals["plc_safety_ok"] = status.safety_ok
         
         # Robot
         if self.robot_driver and self.robot_driver.is_connected:
             status = self.robot_driver.current_status
             if status:
-                signals["fanuc_tcp_speed"] = self.robot_driver.current_speed
+                signals["fanuc_tcp_speed"] = status.current_speed_mms
                 signals["fanuc_mode"] = status.mode.name
                 signals["fanuc_speed_override"] = status.speed_override
-                signals["fanuc_running"] = status.program_running
+                signals["fanuc_running"] = status.in_motion
         
         # Scanner
         if self.scanner_driver and self.scanner_driver.is_connected:
             measurement = self.scanner_driver.current_measurement
             if measurement:
                 signals["scanner_min_distance"] = measurement.min_distance_mm
-                signals["scanner_zone_status"] = measurement.zone_flags.value
+                signals["scanner_zone_status"] = measurement.active_zone.value
                 signals["scanner_contamination"] = measurement.contamination_level
         
         # Fumées
@@ -258,88 +258,79 @@ class RoboSafeSentinel:
     
     def _setup_safety_rules(self) -> None:
         """Configure les règles de sécurité."""
-        
-        # RS-001: Distance critique -> E-STOP
-        self.rule_engine.add_rule(Rule(
+        # RS-001: Distance critique
+        self.rule_engine.register_rule(Rule(
             id="RS-001",
             name="Distance critique",
             priority=RulePriority.P0_CRITICAL,
             condition=lambda ctx: ctx.get("scanner_min_distance", 10000) < 500,
-            action=RuleAction.ESTOP,
-            message="Distance < 500mm détectée",
+            actions=[RuleAction(action_type="ESTOP", message="Distance < 500mm")],
         ))
         
-        # RS-002: Distance warning -> SLOW 25%
-        self.rule_engine.add_rule(Rule(
+        # RS-002: Distance warning
+        self.rule_engine.register_rule(Rule(
             id="RS-002",
             name="Distance warning",
             priority=RulePriority.P1_HIGH,
             condition=lambda ctx: 500 <= ctx.get("scanner_min_distance", 10000) < 800,
-            action=RuleAction.SLOW_25,
-            message="Distance < 800mm - Ralentissement",
+            actions=[RuleAction(action_type="SLOW_25", message="Distance 500-800mm")],
         ))
         
-        # RS-003: Distance monitoring -> SLOW 50%
-        self.rule_engine.add_rule(Rule(
+        # RS-003: Distance monitoring
+        self.rule_engine.register_rule(Rule(
             id="RS-003",
             name="Distance monitoring",
             priority=RulePriority.P2_MEDIUM,
             condition=lambda ctx: 800 <= ctx.get("scanner_min_distance", 10000) < 1200,
-            action=RuleAction.SLOW_50,
-            message="Distance < 1200mm - Vigilance",
+            actions=[RuleAction(action_type="SLOW_50", message="Distance 800-1200mm")],
         ))
         
-        # RS-004: Fumées critiques -> STOP
-        self.rule_engine.add_rule(Rule(
+        # RS-004: Fumées critiques
+        self.rule_engine.register_rule(Rule(
             id="RS-004",
             name="Fumées critiques",
             priority=RulePriority.P0_CRITICAL,
             condition=lambda ctx: ctx.get("fumes_vlep_ratio", 0) >= 1.2,
-            action=RuleAction.STOP,
-            message="Fumées > 120% VLEP",
+            actions=[RuleAction(action_type="STOP", message="Fumées > 120% VLEP")],
         ))
         
-        # RS-005: Fumées élevées -> ALERT
-        self.rule_engine.add_rule(Rule(
+        # RS-005: Fumées élevées
+        self.rule_engine.register_rule(Rule(
             id="RS-005",
             name="Fumées élevées",
             priority=RulePriority.P2_MEDIUM,
             condition=lambda ctx: 0.8 <= ctx.get("fumes_vlep_ratio", 0) < 1.2,
-            action=RuleAction.ALERT,
-            message="Fumées 80-120% VLEP",
+            actions=[RuleAction(action_type="ALERT", message="Fumées 80-120% VLEP")],
         ))
         
-        # RS-006: Vision intrusion -> E-STOP
-        self.rule_engine.add_rule(Rule(
+        # RS-006: Intrusion vision
+        self.rule_engine.register_rule(Rule(
             id="RS-006",
-            name="Intrusion vision",
+            name="Intrusion zone danger",
             priority=RulePriority.P0_CRITICAL,
             condition=lambda ctx: ctx.get("vision_intrusion", False),
-            action=RuleAction.ESTOP,
-            message="Intrusion zone danger détectée par vision",
+            actions=[RuleAction(action_type="ESTOP", message="Intrusion détectée")],
         ))
         
-        # RS-007: EPI manquant -> ALERT
-        self.rule_engine.add_rule(Rule(
+        # RS-007: EPI manquant
+        self.rule_engine.register_rule(Rule(
             id="RS-007",
             name="EPI manquant",
             priority=RulePriority.P2_MEDIUM,
-            condition=lambda ctx: not ctx.get("vision_ppe_ok", True) and ctx.get("vision_person_count", 0) > 0,
-            action=RuleAction.ALERT,
-            message="EPI manquant détecté",
+            condition=lambda ctx: ctx.get("vision_person_count", 0) > 0 and not ctx.get("vision_ppe_ok", True),
+            actions=[RuleAction(action_type="ALERT", message="EPI non détecté")],
         ))
         
-        # RS-008: E-STOP hardware -> E-STOP
-        self.rule_engine.add_rule(Rule(
+        # RS-008: E-STOP physique
+        self.rule_engine.register_rule(Rule(
             id="RS-008",
             name="E-STOP physique",
             priority=RulePriority.P0_CRITICAL,
-            condition=lambda ctx: ctx.get("estop_status", 1) == 0,
-            action=RuleAction.ESTOP,
-            message="Arrêt d'urgence physique activé",
+            condition=lambda ctx: ctx.get("estop_status", 0) == 1,
+            actions=[RuleAction(action_type="ESTOP", message="Bouton E-STOP activé")],
         ))
         
-        logger.info("safety_rules_configured", count=8)
+        logger.info("safety_rules_registered", count=8)
     
     def _wire_agents(self) -> None:
         """Connecte les agents entre eux."""
