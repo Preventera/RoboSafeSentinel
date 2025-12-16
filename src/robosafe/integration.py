@@ -241,7 +241,7 @@ class RoboSafeSentinel:
         if self.fumes_driver and self.fumes_driver.is_connected:
             measurement = self.fumes_driver.current_measurement
             if measurement:
-                signals["fumes_concentration"] = measurement.concentration
+                signals["fumes_concentration"] = measurement.concentration_mgm3
                 signals["fumes_vlep_ratio"] = measurement.vlep_ratio
                 signals["fumes_alert_level"] = measurement.alert_level.value
         
@@ -444,27 +444,30 @@ class RoboSafeSentinel:
                 # 1. Collecter les signaux et mettre à jour le SignalManager
                 signals = self._collect_all_sensors()
                 for sig_id, value in signals.items():
-                    self.signal_manager.update_signal(
+                    await self.signal_manager.update_signal(
                         signal_id=sig_id,
                         value=value,
-                        source=SignalSource.SENSOR,
+                        
                     )
                 
                 # 2. Évaluer les règles de sécurité
-                triggered_rules = await self.rule_engine.evaluate()
+                triggered_rules: Any = await self.rule_engine.evaluate_all()
                 
                 # 3. Appliquer les actions des règles (en plus des agents)
-                for rule in triggered_rules:
-                    if rule.action == RuleAction.ESTOP:
-                        await self.state_machine.transition_to(
-                            SafetyState.ESTOP,
-                            trigger=f"Rule {rule.id}: {rule.message}",
-                        )
-                    elif rule.action == RuleAction.STOP:
-                        await self.state_machine.transition_to(
-                            SafetyState.STOP,
-                            trigger=f"Rule {rule.id}: {rule.message}",
-                        )
+                for result in triggered_rules:
+                    if result.triggered and result.actions_executed:
+                        for action in result.actions_executed:
+                            action_type = action.get("action_type", "") if isinstance(action, dict) else getattr(action, "action_type", "")
+                            if action_type == "ESTOP":
+                                await self.state_machine.transition_to(
+                                    SafetyState.ESTOP,
+                                    trigger=f"Rule {result.rule_id}",
+                                )
+                            elif action_type == "STOP":
+                                await self.state_machine.transition_to(
+                                    SafetyState.STOP,
+                                    trigger=f"Rule {result.rule_id}",
+                                )
                 
                 # 4. Broadcast état périodique (toutes les 10 itérations)
                 cycle_count += 1
