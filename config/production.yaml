@@ -1,0 +1,126 @@
+# RoboSafe Sentinel - Configuration Production
+# Cellule: Soudage MIG Fanuc ARC Mate 100iD
+
+cell:
+  id: "WELD-MIG-001"
+  name: "Cellule Soudage MIG #1"
+  location: "Atelier Principal"
+
+# === Connexions Capteurs ===
+
+plc:
+  type: "siemens_s7"
+  ip: "192.168.1.10"
+  rack: 0
+  slot: 1
+  db_safety_read: 100    # DB pour lecture état sécurité
+  db_safety_write: 200   # DB pour commandes
+  timeout_ms: 100
+
+robot:
+  type: "fanuc"
+  ip: "192.168.1.20"
+  port: 44818
+  cycle_time_ms: 50
+
+scanner:
+  type: "sick_microscan3"
+  ip: "192.168.1.30"
+  port: 2111
+  # Zones configurées dans le scanner
+  zone_protective_mm: 500
+  zone_warning_mm: 1200
+  zone_monitoring_mm: 2000
+
+fumes:
+  type: "modbus_tcp"
+  ip: "192.168.1.40"
+  port: 502
+  unit_id: 1
+  # VLEP selon réglementation
+  vlep_mg_m3: 5.0
+  cycle_time_ms: 500
+
+vision:
+  type: "gige_vision"
+  ip: "192.168.1.50"
+  model: "yolov8n.pt"
+  # Calibration distance
+  focal_length_px: 800
+  known_height_mm: 1700
+
+# === Configuration Agents ===
+
+agents:
+  perception:
+    cycle_time_ms: 50
+    timeout_threshold_ms: 500
+    enable_smoothing: true
+
+  analysis:
+    cycle_time_ms: 100
+    distance_critical_mm: 500
+    distance_high_mm: 800
+    distance_medium_mm: 1200
+    fumes_critical_vlep: 1.2
+    fumes_high_vlep: 1.0
+
+  decision:
+    cycle_time_ms: 100
+    threshold_alert: 25
+    threshold_slow_50: 50
+    threshold_slow_25: 65
+    threshold_stop: 80
+    threshold_estop: 95
+    auto_execute_enabled: true
+
+  orchestrator:
+    cycle_time_ms: 50
+    action_timeout_s: 5.0
+    require_operator_for_stop: false
+
+# === API ===
+
+api:
+  host: "0.0.0.0"
+  port: 8080
+  cors_origins:
+    - "http://localhost:3000"
+    - "http://192.168.1.100"
+
+# === Logging ===
+
+logging:
+  level: "INFO"
+  format: "json"
+  file: "logs/robosafe.log"
+  max_size_mb: 100
+  backup_count: 5
+
+# === Métriques ===
+
+metrics:
+  enabled: true
+  prometheus_port: 9090
+  influxdb:
+    enabled: false
+    url: "http://localhost:8086"
+    token: ""
+    org: "preventera"
+    bucket: "robosafe"
+
+# === Alertes ===
+
+alerts:
+  email:
+    enabled: false
+    smtp_server: "smtp.example.com"
+    recipients:
+      - "safety@company.com"
+  
+  sms:
+    enabled: false
+    
+  webhook:
+    enabled: false
+    url: ""
