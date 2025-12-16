@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoboSafe Sentinel - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .status-normal { background: linear-gradient(135deg, #10b981, #059669); }
+        .status-warning { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .status-slow { background: linear-gradient(135deg, #f97316, #ea580c); }
+        .status-stop { background: linear-gradient(135deg, #ef4444, #dc2626); }
+        .status-estop { background: linear-gradient(135deg, #dc2626, #991b1b); animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .card {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        
+        .dark .card {
+            background: rgba(30, 41, 59, 0.95);
+        }
+        
+        .signal-bar {
+            transition: width 0.3s ease;
+        }
+        
+        .connection-dot {
+            animation: blink 2s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-900 min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-6">
+        
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-6">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center">
+                    <i data-lucide="shield-check" class="w-7 h-7 text-white"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold text-slate-800 dark:text-white">RoboSafe Sentinel</h1>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">Cellule WELD-MIG-001</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <!-- Connection Status -->
+                <div id="connection-status" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white dark:bg-slate-800 shadow">
+                    <span class="connection-dot w-2 h-2 rounded-full bg-red-500"></span>
+                    <span class="text-sm text-slate-600 dark:text-slate-300">Déconnecté</span>
+                </div>
+                
+                <!-- Time -->
+                <div class="px-3 py-2 rounded-lg bg-white dark:bg-slate-800 shadow">
+                    <span id="current-time" class="text-sm font-mono text-slate-600 dark:text-slate-300">--:--:--</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main Safety State -->
+        <div id="safety-state-card" class="status-normal rounded-2xl p-6 mb-6 shadow-xl">
+            <div class="flex justify-between items-center text-white">
+                <div>
+                    <p class="text-white/80 text-sm uppercase tracking-wider">État Sécurité</p>
+                    <h2 id="safety-state" class="text-4xl font-bold mt-1">INITIALISATION</h2>
+                    <p id="state-duration" class="text-white/70 text-sm mt-2">Durée: --</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-white/80 text-sm">Vitesse Max</p>
+                    <p id="max-speed" class="text-5xl font-bold">--<span class="text-2xl">%</span></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Grid principale -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            
+            <!-- Scanner Distance -->
+            <div class="card rounded-xl p-4 shadow-lg">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+                        <i data-lucide="radar" class="w-5 h-5 text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Scanner SICK</p>
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Distance Min</p>
+                    </div>
+                </div>
+                <p id="scanner-distance" class="text-3xl font-bold text-slate-800 dark:text-white">-- <span class="text-lg text-slate-500">mm</span></p>
+                <div class="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div id="scanner-bar" class="signal-bar h-full bg-purple-500 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="scanner-zone" class="text-xs text-slate-500 mt-1">Zone: --</p>
+            </div>
+            
+            <!-- Vision IA -->
+            <div class="card rounded-xl p-4 shadow-lg">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                        <i data-lucide="eye" class="w-5 h-5 text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Vision IA</p>
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Présence</p>
+                    </div>
+                </div>
+                <p id="vision-persons" class="text-3xl font-bold text-slate-800 dark:text-white">-- <span class="text-lg text-slate-500">pers.</span></p>
+                <div class="flex items-center gap-2 mt-2">
+                    <span id="vision-distance" class="text-sm text-slate-600 dark:text-slate-400">Dist: -- mm</span>
+                    <span id="ppe-status" class="px-2 py-0.5 rounded text-xs bg-slate-200 dark:bg-slate-700">EPI: --</span>
+                </div>
+            </div>
+            
+            <!-- Fumées -->
+            <div class="card rounded-xl p-4 shadow-lg">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+                        <i data-lucide="wind" class="w-5 h-5 text-orange-600 dark:text-orange-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Fumées Soudage</p>
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Ratio VLEP</p>
+                    </div>
+                </div>
+                <p id="fumes-ratio" class="text-3xl font-bold text-slate-800 dark:text-white">-- <span class="text-lg text-slate-500">%</span></p>
+                <div class="mt-2 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div id="fumes-bar" class="signal-bar h-full bg-orange-500 rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="fumes-concentration" class="text-xs text-slate-500 mt-1">-- mg/m³</p>
+            </div>
+            
+            <!-- Robot Fanuc -->
+            <div class="card rounded-xl p-4 shadow-lg">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+                        <i data-lucide="bot" class="w-5 h-5 text-green-600 dark:text-green-400"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Robot Fanuc</p>
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200">Vitesse TCP</p>
+                    </div>
+                </div>
+                <p id="robot-speed" class="text-3xl font-bold text-slate-800 dark:text-white">-- <span class="text-lg text-slate-500">mm/s</span></p>
+                <div class="flex items-center gap-2 mt-2">
+                    <span id="robot-mode" class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">--</span>
+                    <span id="robot-program" class="text-sm text-slate-600 dark:text-slate-400">--</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Commandes & Alertes -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+            
+            <!-- Commandes -->
+            <div class="card rounded-xl p-4 shadow-lg">
+                <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
+                    <i data-lucide="sliders" class="w-4 h-4"></i>
+                    Commandes
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="sendCommand('NORMAL')" class="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition">
+                        NORMAL
+                    </button>
+                    <button onclick="sendCommand('SLOW_50')" class="px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg font-semibold transition">
+                        SLOW 50%
+                    </button>
+                    <button onclick="sendCommand('STOP')" class="px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-semibold transition">
+                        STOP
+                    </button>
+                    <button onclick="sendCommand('ESTOP')" class="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition">
+                        E-STOP
+                    </button>
+                </div>
+                <button onclick="sendCommand('RESET')" class="w-full mt-2 px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg font-medium transition">
+                    RESET / Recovery
+                </button>
+            </div>
+            
+            <!-- Alertes actives -->
+            <div class="card rounded-xl p-4 shadow-lg lg:col-span-2">
+                <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
+                    <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                    Alertes Actives
+                </h3>
+                <div id="alerts-container" class="space-y-2 max-h-40 overflow-y-auto">
+                    <p class="text-slate-500 dark:text-slate-400 text-sm italic">Aucune alerte active</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Règles déclenchées -->
+        <div class="card rounded-xl p-4 shadow-lg mb-6">
+            <h3 class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-4 flex items-center gap-2">
+                <i data-lucide="list-checks" class="w-4 h-4"></i>
+                Dernières Règles Déclenchées
+            </h3>
+            <div id="rules-container" class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
+                            <th class="pb-2 font-medium">Heure</th>
+                            <th class="pb-2 font-medium">Règle</th>
+                            <th class="pb-2 font-medium">Priorité</th>
+                            <th class="pb-2 font-medium">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rules-table" class="text-slate-700 dark:text-slate-300">
+                        <tr>
+                            <td colspan="4" class="py-4 text-center text-slate-500 italic">En attente de données...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <footer class="text-center text-sm text-slate-500 dark:text-slate-400">
+            <p>RoboSafe Sentinel v0.1.0 | © 2024 Preventera / GenAISafety</p>
+        </footer>
+    </div>
+    
+    <script>
+        // Configuration
+        const API_URL = window.location.origin;
+        const WS_URL = `ws://${window.location.host}/ws`;
+        
+        let ws = null;
+        let reconnectAttempts = 0;
+        const MAX_RECONNECT_ATTEMPTS = 10;
+        
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            updateTime();
+            setInterval(updateTime, 1000);
+            connectWebSocket();
+        });
+        
+        // WebSocket
+        function connectWebSocket() {
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                reconnectAttempts = 0;
+                updateConnectionStatus(true);
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleUpdate(data);
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                updateConnectionStatus(false);
+                
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    reconnectAttempts++;
+                    setTimeout(connectWebSocket, 2000 * reconnectAttempts);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+        
+        // Mise à jour UI
+        function handleUpdate(data) {
+            if (data.type === 'update') {
+                // État sécurité
+                if (data.state) {
+                    updateSafetyState(data.state);
+                }
+                
+                // Signaux
+                if (data.signals) {
+                    updateSignals(data.signals);
+                }
+            }
+        }
+        
+        function updateSafetyState(state) {
+            const stateEl = document.getElementById('safety-state');
+            const speedEl = document.getElementById('max-speed');
+            const durationEl = document.getElementById('state-duration');
+            const cardEl = document.getElementById('safety-state-card');
+            
+            stateEl.textContent = state.current_state || 'UNKNOWN';
+            speedEl.innerHTML = `${state.max_speed_percent || 0}<span class="text-2xl">%</span>`;
+            
+            if (state.state_duration_seconds) {
+                const mins = Math.floor(state.state_duration_seconds / 60);
+                const secs = Math.floor(state.state_duration_seconds % 60);
+                durationEl.textContent = `Durée: ${mins}m ${secs}s`;
+            }
+            
+            // Couleur selon état
+            cardEl.className = 'rounded-2xl p-6 mb-6 shadow-xl ';
+            switch (state.current_state) {
+                case 'NORMAL':
+                    cardEl.className += 'status-normal';
+                    break;
+                case 'WARNING':
+                    cardEl.className += 'status-warning';
+                    break;
+                case 'SLOW_50':
+                case 'SLOW_25':
+                    cardEl.className += 'status-slow';
+                    break;
+                case 'STOP':
+                    cardEl.className += 'status-stop';
+                    break;
+                case 'ESTOP':
+                    cardEl.className += 'status-estop';
+                    break;
+                default:
+                    cardEl.className += 'bg-slate-500';
+            }
+        }
+        
+        function updateSignals(signals) {
+            // Scanner
+            if (signals.scanner_min_distance !== undefined) {
+                const val = signals.scanner_min_distance.value || signals.scanner_min_distance;
+                document.getElementById('scanner-distance').innerHTML = `${val} <span class="text-lg text-slate-500">mm</span>`;
+                document.getElementById('scanner-bar').style.width = `${Math.min(100, (5000 - val) / 50)}%`;
+            }
+            
+            // Vision
+            if (signals.vision_person_count !== undefined) {
+                const val = signals.vision_person_count.value || signals.vision_person_count;
+                document.getElementById('vision-persons').innerHTML = `${val} <span class="text-lg text-slate-500">pers.</span>`;
+            }
+            if (signals.vision_min_distance !== undefined) {
+                const val = signals.vision_min_distance.value || signals.vision_min_distance;
+                document.getElementById('vision-distance').textContent = `Dist: ${val} mm`;
+            }
+            if (signals.vision_ppe_ok !== undefined) {
+                const ok = signals.vision_ppe_ok.value !== undefined ? signals.vision_ppe_ok.value : signals.vision_ppe_ok;
+                const el = document.getElementById('ppe-status');
+                el.textContent = ok ? 'EPI: OK' : 'EPI: MANQUANT';
+                el.className = ok 
+                    ? 'px-2 py-0.5 rounded text-xs bg-green-100 text-green-700'
+                    : 'px-2 py-0.5 rounded text-xs bg-red-100 text-red-700';
+            }
+            
+            // Fumées
+            if (signals.fumes_vlep_ratio !== undefined) {
+                const val = signals.fumes_vlep_ratio.value || signals.fumes_vlep_ratio;
+                const pct = Math.round(val * 100);
+                document.getElementById('fumes-ratio').innerHTML = `${pct} <span class="text-lg text-slate-500">%</span>`;
+                document.getElementById('fumes-bar').style.width = `${Math.min(100, pct)}%`;
+            }
+            if (signals.fumes_concentration !== undefined) {
+                const val = signals.fumes_concentration.value || signals.fumes_concentration;
+                document.getElementById('fumes-concentration').textContent = `${val.toFixed(2)} mg/m³`;
+            }
+            
+            // Robot
+            if (signals.fanuc_tcp_speed !== undefined) {
+                const val = signals.fanuc_tcp_speed.value || signals.fanuc_tcp_speed;
+                document.getElementById('robot-speed').innerHTML = `${Math.round(val)} <span class="text-lg text-slate-500">mm/s</span>`;
+            }
+            if (signals.fanuc_mode !== undefined) {
+                const val = signals.fanuc_mode.value || signals.fanuc_mode;
+                document.getElementById('robot-mode').textContent = val;
+            }
+        }
+        
+        function updateConnectionStatus(connected) {
+            const el = document.getElementById('connection-status');
+            const dot = el.querySelector('.connection-dot');
+            const text = el.querySelector('span:last-child');
+            
+            if (connected) {
+                dot.className = 'connection-dot w-2 h-2 rounded-full bg-green-500';
+                text.textContent = 'Connecté';
+            } else {
+                dot.className = 'connection-dot w-2 h-2 rounded-full bg-red-500';
+                text.textContent = 'Déconnecté';
+            }
+        }
+        
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString('fr-FR');
+        }
+        
+        // Commandes
+        async function sendCommand(command) {
+            try {
+                const response = await fetch(`${API_URL}/api/v1/command`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        command: command,
+                        reason: 'Dashboard UI',
+                        operator_id: 'dashboard'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    console.log(`Command ${command} sent successfully`);
+                } else {
+                    alert(`Erreur: ${data.message}`);
+                }
+            } catch (error) {
+                console.error('Command error:', error);
+                alert('Erreur de communication avec le serveur');
+            }
+        }
+        
+        // Polling fallback si WebSocket indisponible
+        async function pollStatus() {
+            try {
+                const response = await fetch(`${API_URL}/api/v1/status`);
+                const data = await response.json();
+                
+                updateSafetyState(data);
+            } catch (error) {
+                console.error('Poll error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

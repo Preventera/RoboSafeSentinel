@@ -1,0 +1,92 @@
+# RoboSafe Sentinel Configuration
+# Copier vers config.yaml et personnaliser
+
+# Identification de la cellule
+cell:
+  id: "WELD-MIG-001"
+  name: "Cellule Soudage MIG"
+  type: "welding"
+
+# Configuration robot
+robot:
+  type: "fanuc"
+  model: "ARC Mate 100iD"
+  ip: "192.168.1.10"
+  protocol: "ethernet_ip"
+  payload_kg: 12.0
+  reach_mm: 1420.0
+
+# Configuration PLC sécurité
+plc:
+  type: "siemens"
+  model: "S7-1500F"
+  ip: "192.168.1.20"
+  protocol: "profisafe"
+  rack: 0
+  slot: 1
+
+# Scanners laser
+scanners:
+  - id: "scanner_left"
+    type: "sick_microscan3"
+    ip: "192.168.1.30"
+    zones:
+      warn: 1200
+      protect: 500
+  - id: "scanner_right"
+    type: "sick_microscan3"
+    ip: "192.168.1.31"
+    zones:
+      warn: 1200
+      protect: 500
+
+# Vision IA
+vision:
+  enabled: true
+  ip: "192.168.1.40"
+  model: "basler_ace2"
+  protocol: "gige_vision"
+  fps: 30
+  resolution: "1920x1080"
+
+# Capteur fumées
+fumes:
+  enabled: true
+  ip: "192.168.1.50"
+  protocol: "modbus_tcp"
+  port: 502
+  vlep: 5.0  # mg/m³ - Valeur limite exposition professionnelle
+  warning_ratio: 0.5   # 50% VLEP
+  alert_ratio: 0.8     # 80% VLEP
+  critical_ratio: 1.0  # 100% VLEP
+  stop_ratio: 1.2      # 120% VLEP
+
+# Seuils de sécurité
+thresholds:
+  # Distance (mm)
+  distance_stop: 800
+  distance_slow: 1500
+  distance_warn: 2000
+  
+  # Timeouts (ms)
+  plc_heartbeat_timeout: 500
+  vision_timeout: 500
+  fumes_timeout: 5000
+  
+  # Marges
+  safety_margin_percent: 20
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "json"  # json, console
+  output: "data/logs/robosafe.log"
+  max_size_mb: 100
+  backup_count: 10
+
+# API REST
+api:
+  host: "0.0.0.0"
+  port: 8080
+  cors_origins:
+    - "*"
